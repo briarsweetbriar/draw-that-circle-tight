@@ -1,0 +1,5 @@
+[
+null,
+{"id":1,"battlerName":"1_tass","characterIndex":0,"characterName":"1 - pcs","classId":1,"equips":[0,0,0,0,0],"faceIndex":0,"faceName":"1 - tass","traits":[],"initialLevel":1,"maxLevel":99,"name":"tassandra","nickname":"","note":"","profile":""},
+{"id":2,"battlerName":"1_locke","characterIndex":1,"characterName":"1 - pcs","classId":2,"equips":[0,0,0,0,0],"faceIndex":0,"faceName":"1 - locke","traits":[{"code":62,"dataId":0,"value":1}],"initialLevel":1,"maxLevel":99,"name":"locke","nickname":"","note":"<Foo>","profile":""}
+]

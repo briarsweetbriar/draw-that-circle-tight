@@ -37,14 +37,14 @@ BSB.C = BSB.C || {};
     return BSB.C.filterText(text, new RegExp(`<${tag}:([\\s\\S]*?)>|<${tag}>`, 'g')).map(BSB.C.parseTag);
   }
 
-  BSB.C.getCharacterMultiLineTag = function(character, tag) {
-    let objects = character.states();
-    if (character.isActor()) {
-      objects = objects.concat([character.actor(), ...character.equips()]);
+  BSB.C.getBattlerMultiLineTag = function(battler, tag) {
+    let battlerAspects = battler.states();
+    if (battler.isActor()) {
+      battlerAspects = battlerAspects.concat([battler.actor(), battler.currentClass(), ...battler.equips()]);
     } else {
-      objects = objects.concat(character.enemy());
+      battlerAspects = battlerAspects.concat(battler.enemy());
     }
-    return objects.reduce((tags, object) => {
+    return battlerAspects.reduce((tags, object) => {
       if (object?.note) {
         return tags.concat(BSB.C.getMultiLineTag(object.note, tag));
       } else {
@@ -121,7 +121,7 @@ BSB.C = BSB.C || {};
     return eval(formula);
   }
 
-  BSB.C.valOrEval = function(val, a, b, c) {
-    return isNaN(val) ? BSB.C.evalFormula(val, a, b, c) : val;
+  BSB.C.valOrEval = function(val, ...args) {
+    return isNaN(val) ? BSB.C.evalFormula(val, ...args) : val;
   } 
 })();

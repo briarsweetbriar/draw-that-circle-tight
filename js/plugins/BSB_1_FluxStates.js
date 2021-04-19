@@ -40,7 +40,7 @@ BSB.FS = BSB.FS || {};
   Game_Action.prototype.apply = function(target) {
     let subject = this.subject();
     BSB.FS.Game_Action_apply.call(this, ...arguments);
-    BSB.C.getBattlerMultiLineTag(subject, 'Alter Flux State').forEach((changeTag) => {
+    subject.getMultiLineTags('Alter Flux State').forEach((changeTag) => {
       let power = BSB.C.valOrEval(changeTag.power, subject, target,)
       let resistance = target.fluxStateResistance(changeTag.type, subject, changeTag.reduce);
 
@@ -74,20 +74,20 @@ BSB.FS = BSB.FS || {};
 
   Game_BattlerBase.prototype.fluxStates = function() {
     return this.states().find((state) => {
-      return BSB.C.getMultiLineTag(state.note, 'Flux State').length > 0;
+      return BSB.NP.getMultiLineTags(state.note, 'Flux State').length > 0;
     });
   };
 
   Game_BattlerBase.prototype.fluxState = function(type) {
     return this.states().find((state) => {
-      return BSB.C.getMultiLineTag(state.note, 'Flux State').some((fs) => {
+      return BSB.NP.getMultiLineTags(state.note, 'Flux State').some((fs) => {
         return fs.type === type;
       });
     });
   };
 
   Game_BattlerBase.prototype.fluxStateResistance = function(type, subject, isReduction) {
-    return BSB.C.getBattlerMultiLineTag(this, 'Resist Flux State').reduce((resistance, resistTag) => {
+    return this.getMultiLineTags('Resist Flux State').reduce((resistance, resistTag) => {
       if (resistTag.type === type) {
         return resistance + BSB.C.valOrEval(resistTag[isReduction ? 'reduce resistance' : 'resistance'] || 0, subject, this);
       } else {
@@ -112,8 +112,8 @@ BSB.FS = BSB.FS || {};
   };
 
   Game_BattlerBase.prototype.updateFluxStateThreshold = function(type, amount) {
-    let max = BSB.C.parse(PluginManager.parameters('bsb_1_fluxstates')['maxThreshold']);
-    let min = BSB.C.parse(PluginManager.parameters('bsb_1_fluxstates')['minThreshold']);
+    let max = BSB.NP.parse(PluginManager.parameters('bsb_1_fluxstates')['maxThreshold']);
+    let min = BSB.NP.parse(PluginManager.parameters('bsb_1_fluxstates')['minThreshold']);
 
     this._fluxStateIntensities[type] = Math.min(max, Math.max(min, amount));
   };
@@ -147,7 +147,7 @@ BSB.FS = BSB.FS || {};
 
   BSB.FS.gatherFluxStates = function(states) {
     return states.reduce((fluxStates, state) => {
-      if (BSB.C.getMultiLineTag(state?.note || '', 'Flux State').length > 0) fluxStates.push(state);
+      if (BSB.NP.getMultiLineTags(state?.note || '', 'Flux State').length > 0) fluxStates.push(state);
 
       return fluxStates;
     }, []);
@@ -155,7 +155,7 @@ BSB.FS = BSB.FS || {};
 
   BSB.FS.groupFluxStates = function(states) {
     return states.reduce((fluxStates, state) => {
-      BSB.C.getMultiLineTag(state.note, 'Flux State').forEach(({ type, threshold }) => {
+      BSB.NP.getMultiLineTags(state.note, 'Flux State').forEach(({ type, threshold }) => {
         let thresholds = typeof threshold === 'number' ? [{ amount: threshold, type }] : threshold;
         fluxStates[type] = fluxStates[type] || [];
         fluxStates[type].push({ thresholds, state });
@@ -168,13 +168,9 @@ BSB.FS = BSB.FS || {};
   BSB.FS.sortGroupedFluxStates = function(groupedStates) {
     Object.values(groupedStates).forEach((fs) => {
       fs.sort((a, b) => {
-        if (b.thresholds.length !== a.thresholds.length) {
-          return b.thresholds.length - a.thresholds.length;
-        } else {
-          let aSum = a.thresholds.reduce((sum, threshold) => sum + threshold.amount, 0);
-          let bSum = b.thresholds.reduce((sum, threshold) => sum + threshold.amount, 0);
-          return  bSum - aSum;
-        }
+        let aSum = a.thresholds.reduce((sum, threshold) => sum + threshold.amount, 0);
+        let bSum = b.thresholds.reduce((sum, threshold) => sum + threshold.amount, 0);
+        return  bSum - aSum;
       })
     });
   }

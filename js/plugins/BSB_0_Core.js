@@ -16,6 +16,7 @@ BSB.C = BSB.C || {};
 
 (() => {
   BSB.C.evalFormula = function(formula, a, b, c) {
+    let r = Math.random();
     return eval(formula);
   }
 

@@ -15,72 +15,34 @@ BSB.NP = BSB.NP || {};
  */
 
 (() => {
-  /**
-   * finds all instance of a multiline tag and returns their values in an array
-   *
-   * @function getMultiLineTags
-   *
-   * @param {string} note - the note
-   * @param {string} tag - the tag name
-   *
-   * @returns {array} an array of object matching the key/values inside the tag
-   * @example
-   * let note = `
-   *   <Foo>
-   *     boolean: true
-   *     number: 8.88
-   *     string: other value
-   *     array: [1, 2, 3]
-   *     object: { boo: 1 }
-   *     nestedStuff: [{ boo: 1, baz: 2 }, { boo: 3, baz: 99 }]
-   *   </Foo>
-   *   <Foo>
-   *     anotherVal: 123
-   *   </Foo>
-   *   <Bar>
-   *     something: else
-   *   </Bar>
-   * `
-   * 
-   * BSB.NP.getMultiLineTag(note, "Foo");
-   * => [{
-   *  boolean: true,
-   *  number: 8.88,
-   *  string: 'other value',
-   *  array: [1, 2, 3],
-   *  object: { boo: 1 },
-   *  nestedStuff: [{ boo: 1, baz: 2 }, { boo: 3, baz: 99 }]
-   * }, {
-   *   anotherVal: 123
-   * }]
-   *
-   */
   BSB.NP.getMultiLineTags = function(note, tag) {
     if (!note || !tag) { return []; }
     return BSB.NP.filterText(note, new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, 'g')).map(BSB.NP.parseTag);
   }
 
-  /**
-   * finds the first instance of a multie line tag and returns its attributes
-   *
-   * @function getMultiLineTag
-   *
-   */
   BSB.NP.getMultiLineTag = function(note, tag) {
     return BSB.NP.getMultiLineTags(note, tag)[0];
   }
 
-  /**
-   * finds all instance of a multiline tag on a battler and its equipment/class/states
-   *
-   * @function getMultiLineTags
-   *
-   * @param {string} tag - the tag name
-   *
-   * @returns {array} an array of object matching the key/values inside the tag
-   *
-   */
-  Game_BattlerBase.prototype.getMultiLineTags = function(tag) {
+  BSB.NP.getTags = function(note, tag) {
+    if (!note || !tag) { return []; }
+    return BSB.NP.filterText(note, new RegExp(`<${tag}:([\\s\\S]*?)>|<${tag}>`, 'g')).map(str => str ? str.split(',').map(BSB.NP.parse) : []);
+  }
+
+  BSB.NP.getTag = function(note, tag) {
+    return BSB.NP.getTags(note, tag)[0];
+  }
+  
+  BSB.NP.getJSTags = function(note, tag) {
+    if (!note || !tag) { return []; }
+    return BSB.NP.filterText(note, new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, 'g'));
+  }
+
+  BSB.NP.getJSTag = function(note, tag) {
+    return BSB.NP.getJSTags(note, tag)[0];
+  }
+
+  Game_BattlerBase.prototype._getTagsOfType = function(tag, getTags) {
     let aspects = this.states();
     if (this.isActor()) {
       aspects = aspects.concat([this.actor(), this.currentClass(), ...this.equips()]);
@@ -89,85 +51,41 @@ BSB.NP = BSB.NP || {};
     }
     return aspects.reduce((tags, aspect) => {
       if (aspect?.note) {
-        return tags.concat(BSB.NP.getMultiLineTags(aspect.note, tag));
+        return tags.concat(getTags(aspect.note, tag));
       } else {
         return tags;
       }
     }, []);
   }
 
-  /**
-   * finds all instances of a single line tag and returns their attributes
-   *
-   * @function getTag
-   *
-   * @param {string} note - The note
-   * @param {string} tag - The tag name
-   *
-   * @returns {array} an array of arrays of tag attributes
-   * @example
-   * BSB.NP.getTag('<Foo: 1, true, bar>', "Foo");
-   * => [[1, true, 'bar']]
-   * 
-   * BSB.NP.getTag('<Foo: 1, true, bar> <Foo: baz> <Bar>', "Foo");
-   * => [[1, true, 'bar'], ['baz']]
-   * 
-   * BSB.NP.getTag('<Foo>', "Foo");
-   * => [[]]
-   * 
-   * BSB.NP.getTag('<Foo>', "Bar");
-   * => undefined
-   *
-   */
-  BSB.NP.getTags = function(note, tag) {
-    if (!note || !tag) { return []; }
-    return BSB.NP.filterText(note, new RegExp(`<${tag}:([\\s\\S]*?)>|<${tag}>`, 'g')).map(str => str ? str.split(',').map(BSB.NP.parse) : []);
+  Game_BattlerBase.prototype.getMultiLineTags = function(tag) {
+    return this._getTagsOfType(tag, BSB.NP.getMultiLineTags);
   }
 
-  /**
-   * finds the first instance of a single line tag and returns its attributes
-   *
-   * @function getTag
-   *
-   */
-  BSB.NP.getTag = function(note, tag) {
-    return BSB.NP.getTags(note, tag)[0];
+  Game_BattlerBase.prototype.getMultiLineTag = function(tag) {
+    return this._getTagsOfType(tag, BSB.NP.getMultiLineTags)[0];
   }
-  
-  /**
-   * finds all instances of a js tag and returns their contents
-   *
-   * @function getJSTags
-   *
-   * @param {string} note - The note
-   * @param {string} tag - The tag name
-   *
-   * @returns {array} an array of code strings
-   * let note = `
-   *   <Foo>
-   *     my custom code
-   *   </Foo>
-   *   <Foo>
-   *     my other code
-   *   </Foo>
-   * 
-   * BSB.NP.getMultiLineTag(note, "Foo");
-   * => ["my custom code", "my other code"]
-   *
-   */
-  BSB.NP.getJSTags = function(note, tag) {
-    if (!note || !tag) { return []; }
-    return BSB.NP.filterText(note, new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, 'g'));
+
+  Game_BattlerBase.prototype.getTags = function(tag) {
+    return this._getTagsOfType(tag, BSB.NP.getTags);
   }
-  
-  /**
-   * finds the first instance of a js tag and returns its contents
-   *
-   * @function getJSTag
-   *
-   */
-  BSB.NP.getJSTag = function(note, tag) {
-    return BSB.NP.getJSTags(note, tag)[0];
+
+  Game_BattlerBase.prototype.getTag = function(tag) {
+    return this._getTagsOfType(tag, BSB.NP.getTags)[0];
+  }
+
+  Game_Action.prototype._getTagsOfType = function(tag, getTags) {
+    let tags = getTags(this.item());
+    
+    return tags.concat(this.subject()._getTagsOfType(tag, getTags));
+  }
+
+  Game_Action.prototype.getMultiLineTags = function(tag) {
+    return this._getTagsOfType(tag, BSB.NP.getMultiLineTags);
+  }
+
+  Game_Action.prototype.getTags = function(tag) {
+    return this._getTagsOfType(tag, BSB.NP.getTags);
   }
 
   // derived from https://fenixenginemv.gitlab.io/fenix-tools/Utils_filterText.js.html

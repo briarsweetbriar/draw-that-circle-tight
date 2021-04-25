@@ -65,10 +65,10 @@ BSB.FS = BSB.FS || {};
   BSB.FS.Game_BattlerBase_initMembers = Game_BattlerBase.prototype.initMembers;
   Game_BattlerBase.prototype.initMembers = function() {
     BSB.FS.Game_BattlerBase_initMembers.call(this, ...arguments);
-    this.clearfluxStateIntensities();
+    this.clearFluxStateIntensities();
   };
 
-  Game_BattlerBase.prototype.clearfluxStateIntensities = function() {
+  Game_BattlerBase.prototype.clearFluxStateIntensities = function() {
     return this._fluxStateIntensities = [];
   };
 

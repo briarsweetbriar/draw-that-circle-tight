@@ -1894,6 +1894,7 @@ Game_Action.prototype.itemCri = function(target) {
 Game_Action.prototype.apply = function(target) {
     const result = target.result();
     this.subject().clearResult();
+    debugger
     result.clear();
     result.used = this.testApply(target);
     result.missed = result.used && Math.random() >= this.itemHit(target);

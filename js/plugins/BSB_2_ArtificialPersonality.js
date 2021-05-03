@@ -51,21 +51,6 @@ BSB.AP = BSB.AP || {};
  */
 
 (() => {
-  BSB.AP.destructureExtendedId = (extendedId) => {
-    let [type, id] = extendedId.split('::');
-  
-    return { type, id };
-  }
-
-  BSB.AP.getBattlerByExtendedId = (extendedId) => {
-    let {type, id} = BSB.AP.destructureExtendedId(extendedId);
-    
-    return type === 'Actor' ? $gameActors.actor(id) : new Game_Enemy($dataEnemies[id]);
-  }
-
-  BSB.AP.boundBy = (val, min, max) => {
-    return Math.max(min, Math.min(max, value));
-  }
 
   /* AttitudeBase */
   BSB.AP.AttitudeBase = function() {
@@ -97,7 +82,7 @@ BSB.AP = BSB.AP || {};
   BSB.AP.AttitudeBase.prototype.setAttitude = function(key, value) {
     let max = BSB.NP.parse(PluginManager.parameters('bsb_2_artificialpersonality')['maxAttitude']);
     let min = BSB.NP.parse(PluginManager.parameters('bsb_2_artificialpersonality')['minAttitude']);
-    return this[key] = BSB.AP.boundBy(value, min, max);
+    return this[key] = BSB.C.boundBy(value, min, max);
   };
 
   BSB.AP.AttitudeBase.prototype.getAttitudes = function() {
@@ -148,9 +133,10 @@ BSB.AP = BSB.AP || {};
     return subject.extendedId();
   }
 
-  BSB.AP.Bias.prototype.initialize = function(subject, attitudes = {}) {
+  BSB.AP.Impression.prototype.initialize = function(subject, attitudes = {}) {
     let tags = subject.getMultiLineTags('AP::Impression');
     attitudes = this.AttitudeTypes.reduce((attitudes, type) => {
+      attitudes[type] = attitudes[type] || 0;
       tags.forEach((tag) => {
         attitude[type] = attitude[type] || 0;
         attitude[type] += tag[type] || 0;
@@ -243,7 +229,7 @@ BSB.AP = BSB.AP || {};
     return this._target;
   };
 
-  BSB.AP.Relationship.prototype._stepBias = function(fnKey, key, amount) {
+  BSB.AP.Relationship.prototype._stepRelationship = function(fnKey, key, amount) {
     let subject = this.subject();
     let target = this.target();
     let biasFormation = subject.biasFormation();
@@ -255,13 +241,13 @@ BSB.AP = BSB.AP || {};
   };
 
   BSB.AP.Relationship.prototype.incrementAttitude = function(key, amount = 1) {
-    this._stepBias('incrementAttitude', key, amount);
+    this._stepRelationship('incrementAttitude', key, amount);
 
     return BSB.AP.AttitudeBase.prototype.incrementAttitude.call(this, key, amount);
   };
 
   BSB.AP.Relationship.prototype.decrementAttitude = function(key, amount = 1) {
-    this._stepBias('decrementAttitude', key, amount);
+    this._stepRelationship('decrementAttitude', key, amount);
 
     return BSB.AP.AttitudeBase.prototype.decrementAttitude.call(this, key, amount);
   };
@@ -295,7 +281,7 @@ BSB.AP = BSB.AP || {};
     this.setTarget(target);
   };
 
-  BSB.AP.Rapport.prototype._stepBias = function(fnKey, key, amount) {
+  BSB.AP.Rapport.prototype._stepRapport = function(fnKey, key, amount) {
     let subject = this.subject();
     let target = this.target();
     let relationshipFormation = subject.relationshipFormation();
@@ -304,13 +290,13 @@ BSB.AP = BSB.AP || {};
   };
 
   BSB.AP.Rapport.prototype.incrementAttitude = function(key, amount = 1) {
-    this._stepBias('incrementAttitude', key, amount);
+    this._stepRapport('incrementAttitude', key, amount);
 
     return BSB.AP.AttitudeBase.prototype.incrementAttitude.call(this, key, amount);
   };
 
   BSB.AP.Rapport.prototype.decrementAttitude = function(key, amount = 1) {
-    this._stepBias('decrementAttitude', key, amount);
+    this._stepRapport('decrementAttitude', key, amount);
 
     return BSB.AP.AttitudeBase.prototype.decrementAttitude.call(this, key, amount);
   };
@@ -320,7 +306,7 @@ BSB.AP = BSB.AP || {};
   };
 
   BSB.AP.Rapport.prototype.noticeAttack = function() {
-    return Math.max(this.fear, this.rivarly, this.obsession);
+    return Math.max(this.fear, this.rivalry, this.obsession);
   };
 
   /* Game_Action */
@@ -342,98 +328,97 @@ BSB.AP = BSB.AP || {};
     return this.battlerData().meta.ap;
   };
 
-  Game_BattlerBase.prototype.battlerData = function() {
-    return this.isActor() ? this.actor() : this.enemy();
-  };
-
-  Game_BattlerBase.prototype.extendedId = function() {
-    if (this._extendedId) return this._extendedId;
-
-    let baseCharacter = this.baseCharacter();
-
-    let type = baseCharacter.isActor() ? 'Actor' : 'Enemey';
-    let baseId = baseCharacter.battlerData().id;
-  
-    return this._extendedId = `${type}::${baseId}`;
-  };
-
   Game_BattlerBase.prototype._relateAsCharacter = function() {
     let relateAs = this.getTag('AP::RelateAs');
 
     if (relateAs) {
-      let relateAsChar = BSB.AP.getBattlerByExtendedId(relateAs);
+      let relateAsChar = BSB.C.getBattlerByExtendedId(relateAs);
       
       return relateAsChar._relateAsCharacter() || relateAsChar;
     }
   };
 
   Game_BattlerBase.prototype.baseCharacter = function() {
-    if (this._baseCharacter) return this._baseCharacter;
-    
-    return this._baseCharacter = this._relateAsCharacter() || this;
+    return this._relateAsCharacter() || this;
   };
 
   Game_BattlerBase.prototype.focus = function() {
-    return this.baseCharacter()._focus;
+    return this._focus;
+  };
+
+  Game_BattlerBase.prototype.deleteFocus = function() {
+    delete this._focus;
   };
 
   Game_BattlerBase.prototype.focusFor = function(battler) {
-    return this.baseCharacter().focus()[battler.baseCharacter().extendedId()];
+    return this.focus().get(battler);
   };
 
-  Game_BattlerBase.prototype.resetFocus = function(battlers) {
-    let baseCharacter = this.baseCharacter();
-    battlers = battlers.filter((b) => b.extendedId() !== baseCharacter.extendedId());
-    baseCharacter._focus = battlers.reduce((focus, battler) => {
-      let otherBaseCharacter = battler.baseCharacter();
-      focus[otherBaseCharacter.extendedId()] = baseCharacter.rapportWith(otherBaseCharacter).obsession;
+  Game_BattlerBase.prototype.setFocus = function(focus) {
+    return this._focus = focus;
+  };
+
+  Game_BattlerBase.prototype.resetFocus = function() {
+    let battlers = this.allTargets().filter((b) => b.extendedId() !== this.extendedId());
+    let focus = battlers.reduce((focus, battler) => {
+      focus.set(battler, this.rapportWith(battler).obsession);
 
       return focus;
-    }, {});
-    baseCharacter.normalizeFocus();
+    }, new Map());
+    this.setFocus(focus);
+    this.normalizeFocus();
   };
 
   Game_BattlerBase.prototype.normalizeFocus = function() {
-    let baseCharacter = this.baseCharacter();
-    let focusSum = Object.values(baseCharacter._focus).reduce((sum, f) => sum + f, 0);
-    baseCharacter._focus = Object.entries(baseCharacter._focus).reduce((accum, [id, f]) => {
-      accum[id] = focusSum === 0 ? 1 / Object.keys(baseCharacter._focus).length : f / focusSum;
+    let focusSum = [...this.focus().values()].reduce((sum, f) => sum + f, 0);
+    let focus = [...this.focus().entries()].reduce((focus, [battler, f]) => {
+      focus.set(battler, focusSum === 0 ? 1 / this.focus().size : f / focusSum);
 
-      return accum;
-    }, {});
+      return focus;
+    }, new Map());
+    this.setFocus(focus);
   };
 
   Game_BattlerBase.prototype.awareness = function() {
-    let baseSubject = this.baseCharacter();
+    let tags = this.getTags('AP::Awareness');
     
-    let tags = baseSubject.getTags('AP::Awareness');
-    
-    return BSB.AP.boundBy(tags.reduce((awareness, tag) => {
-      return sum + (BSB.C.valOrEval(tag[0], baseSubject) / 200);
+    return BSB.C.boundBy(tags.reduce((awareness, tag) => {
+      return sum + (BSB.C.valOrEval(tag[0], this) / 200);
     }, 0), -0.5, 0.5);
   };
 
   Game_BattlerBase.prototype.impression = function() {
-    return this.baseCharacter()._impression;
+    return this._impression;
+  };
+
+  Game_BattlerBase.prototype.deleteImpression = function(attitudes) {
+    delete this._impression;
   };
 
   Game_BattlerBase.prototype.initImpression = function(attitudes) {
-    return this.baseCharacter()._impression = new BSB.AP.Impression(this.baseCharacter(), attitudes);
+    return this._impression = new BSB.AP.Impression(this, attitudes);
   };
 
   Game_BattlerBase.prototype.rapports = function() {
-    return this.baseCharacter()._rapports;
+    return this._rapports;
+  };
+
+  Game_BattlerBase.prototype.deleteRapports = function() {
+    delete this._rapports;
   };
 
   Game_BattlerBase.prototype.rapportWith = function(target, attitudes) {
-    let baseSubject = this.baseCharacter();
-    let baseTarget = target.baseCharacter();
-    let id = BSB.AP.RelationshipId(baseSubject, baseTarget);
-    return baseSubject.rapports()[id] = baseSubject.rapports()[id] || new BSB.AP.Rapport(baseSubject, baseTarget, attitudes);
+    let rapport = this.rapports().get(target);
+
+    if (rapport) return rapport;
+
+    this.rapports().set(target, new BSB.AP.Rapport(this, target, attitudes));
+
+    return this.rapportWith(target, attitudes);
   };
 
-  Game_BattlerBase.prototype.clearRapports = function() {
-    return this.baseCharacter()._rapports = {};
+  Game_BattlerBase.prototype.initRapports = function() {
+    return this._rapports = new Map();
   };
 
   Game_BattlerBase.prototype.relationships = function() {
@@ -453,7 +438,7 @@ BSB.AP = BSB.AP || {};
 
     Object.entries(relationships).forEach(([id, attitudes]) => {
       let [_, targetId] = id.split('->');
-      let target = BSB.AP.getBattlerByExtendedId(targetId);
+      let target = BSB.C.getBattlerByExtendedId(targetId);
       baseCharacter.apMeta().relationships[id] = baseCharacter.apMeta().relationships[id] || new Relationship(this, target, attitudes);
     });
   };
@@ -504,51 +489,70 @@ BSB.AP = BSB.AP || {};
   };
 
   Game_BattlerBase.prototype.biasCategories = function() {
-    let baseSubject = this.baseCharacter();
-    return baseSubject._biasCategories = baseSubject._biasCategories || [...new Set(baseSubject.getTags('AP::BiasCategories').flat())];
+    return [...new Set(this.getTags('AP::BiasCategories').flat())];
   };
 
   Game_BattlerBase.prototype.biasFormation = function() {
-    let baseSubject = this.baseCharacter();
-    if (baseSubject._biasFormation) return baseSubject._biasFormation;
-
-    let tag = baseSubject.getTag('AP::BiasFormation');
+    let tag = this.getTag('AP::BiasFormation');
 
     return tag
-      ? BSB.C.valOrEval(tag[0], baseSubject)
+      ? BSB.C.valOrEval(tag[0], this)
       : BSB.NP.parse(PluginManager.parameters('bsb_2_artificialpersonality')['defaultBiasFormation']);
   };
 
   Game_BattlerBase.prototype.relationshipFormation = function() {
-    let baseSubject = this.baseCharacter();
-    if (baseSubject._relationshipFormation) return baseSubject._relationshipFormation;
-
-    let tag = baseSubject.getTag('AP::RelationshipFormation');
+    let tag = this.getTag('AP::RelationshipFormation');
 
     return tag
-      ? BSB.C.valOrEval(tag[0], baseSubject)
+      ? BSB.C.valOrEval(tag[0], this)
       : BSB.NP.parse(PluginManager.parameters('bsb_2_artificialpersonality')['defaultRelationshipFormation']);
   };
 
   /* Game_Battler */
   Game_Battler.prototype.noticeAction = function(target, action) {
-    let baseThisChar = this.baseCharacter();
-    let baseSubject = action.subject().baseCharacter();
-    let baseTarget = target.baseCharacter();
+    let subject = action.subject();
 
-    if (baseThisChar === baseSubject) return;
+    if (this === subject) return;
 
-    let awareness = baseThisChar.awareness();
-    let noticeability = BSB.AP.boundBy(action.getTags('AP::Noticeability').reduce((sum, tag) => {
-      return sum + (BSB.C.valOrEval(tag[0], baseSubject, baseTarget, target.result()) / 100);
+    let awareness = this.awareness();
+    let noticeability = BSB.C.boundBy(action.getTags('AP::Noticeability').reduce((sum, tag) => {
+      return sum + (BSB.C.valOrEval(tag[0], subject, target, target.result()) / 100);
     }, 1), 0, 2);
-    let noticeAttack = baseThisChar.rapportWith(baseSubject).noticeAttack() * BSB.AP.boundBy(baseThisChar.focusFor(baseSubject) + awareness, 0, 1);
-    let noticeDefense = baseTarget.extendedId() === baseThisChar.extendedId()
+    let noticeAttack = this.rapportWith(subject).noticeAttack() * BSB.C.boundBy(this.focusFor(subject) + awareness, 0, 1);
+    let noticeDefense = target.extendedId() === this.extendedId()
       ? BSB.NP.parse(PluginManager.parameters('bsb_2_artificialpersonality')['maxAttitude'])
-      : baseThisChar.rapportWith(baseTarget).noticeDefense() * BSB.AP.boundBy(baseThisChar.focusFor(baseTarget) + awareness, 0, 1);
+      : this.rapportWith(baseTarget).noticeDefense() * BSB.C.boundBy(this.focusFor(baseTarget) + awareness, 0, 1);
     
     let total = (noticeAttack + noticeDefense) * noticeability;
     debugger
+  };
+
+
+  /* BattleManager */
+  BSB.AP.BattleManager_startBattle = BattleManager.startBattle;
+  BattleManager.startBattle = function() {
+    BSB.AP.BattleManager_startBattle.call(this, ...arguments);
+
+    for (const member of this.allBattleMembers()) {
+        member.resetFocus();
+    }
+  };
+
+
+  /* Game_Battler */
+  BSB.AP.Game_Battler_onBattleStart = Game_Battler.prototype.onBattleStart;
+  Game_Battler.prototype.onBattleStart = function() {
+    BSB.AP.Game_Battler_onBattleStart.call(this, ...arguments);
+    this.initImpression();
+    this.initRapports();
+  };
+
+  BSB.AP.Game_Battler_onBattleEnd = Game_Battler.prototype.onBattleEnd;
+  Game_Battler.prototype.onBattleEnd = function() {
+    BSB.AP.Game_Battler_onBattleEnd.call(this, ...arguments);
+    this.deleteImpression();
+    this.deleteRapports();
+    this.deletFocus();
   };
 
 
@@ -558,10 +562,8 @@ BSB.AP = BSB.AP || {};
     BSB.AP.Game_Actor_setup.call(this, ...arguments);
     let actor = $dataActors[actorId];
     this.initApMeta(actor);
-    this.initImpression();
     this.initBiases(actor.biases);
     this.initRelationships(actor.relationships);
-    this.clearRapports();
   };
 
   /* Game_Enemy */
@@ -570,9 +572,7 @@ BSB.AP = BSB.AP || {};
     BSB.AP.Game_Enemy_setup.call(this, ...arguments);
     let enemy = $dataEnemies[enemyId];
     this.initApMeta(enemy);
-    this.initImpression();
     this.initBiases(enemy.biases);
     this.initRelationships(enemy.relationships);
-    this.clearRapports();
   };
 })();

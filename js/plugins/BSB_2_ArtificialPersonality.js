@@ -521,7 +521,7 @@ BSB.AP = BSB.AP || {};
     let noticeAttack = this.rapportWith(subject).noticeAttack() * BSB.C.boundBy(this.focusFor(subject) + awareness, 0, 1);
     let noticeDefense = target.extendedId() === this.extendedId()
       ? BSB.NP.parse(PluginManager.parameters('bsb_2_artificialpersonality')['maxAttitude'])
-      : this.rapportWith(baseTarget).noticeDefense() * BSB.C.boundBy(this.focusFor(baseTarget) + awareness, 0, 1);
+      : this.rapportWith(target).noticeDefense() * BSB.C.boundBy(this.focusFor(target) + awareness, 0, 1);
     
     let total = (noticeAttack + noticeDefense) * noticeability;
     debugger
